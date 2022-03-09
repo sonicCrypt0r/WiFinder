@@ -15,13 +15,10 @@ def main():
 	argsDict = parseArgs()  # Parse and Autoset Parameters
 	startMonMode(argsDict["interface"], argsDict["channel"])  # Start Monitor Mode On Interface'''
 
-	
-	list = []
+	dBmList = []
 	while True:
-		list.append(getAverageDbm(argsDict, 50))
-		clearScr()
-		print(list)
-		adviseUser(list)
+		dBmList.append(getAverageDbm(argsDict, 50))
+		adviseUser(dBmList)
 
 	return
 
@@ -58,27 +55,26 @@ def banner():
 :!:  :!:  :!:  :!:  :!:       :!:  :!:  !:!  :!:  !:!  :!:       :!:  !:!  
  :::: :: :::    ::   ::        ::   ::   ::   :::: ::   :: ::::  ::   :::  
   :: :  : :    :     :        :    ::    :   :: :  :   : :: ::    :   : :  
-													By: sonicCrypt0r""")
+					BY: sonicCrypt0r""")
 
 
-def adviseUser(list):
+def adviseUser(listDb):
 	import pyttsx3
 
-	if len(list) > 1:
-		if list[-1] == list[-2]:
-			engine = pyttsx3.init()
-			engine.say("No Difference " + str(list[-1]))
-			print("No Difference")
+	engine = pyttsx3.init()
+	if len(listDb) > 1:
+		dBmDiff = listDb[-1] - listDb[-2]
+		if dBmDiff == 0:
+			engine.say("No Difference " + str(listDb[-1]))
+			sprint(pStatus("WARN") + "No Difference! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
 			engine.runAndWait()
-		elif list[-1] > list[-2]:
-			engine = pyttsx3.init()
-			engine.say("Getting closer, " + str(list[-1]))
-			print("Getting Closer!")
+		elif dBmDiff > 1:
+			engine.say("Getting closer, " + str(listDb[-1]))
+			sprint(pStatus("GOOD") + "Getting Closer! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
 			engine.runAndWait()
-		else:
-			engine = pyttsx3.init()
-			engine.say("Wrong Way, " + str(list[-1]))
-			print("Wrong Way!")
+		elif dBmDiff < -1:
+			engine.say("Wrong Way, " + str(listDb[-1]))
+			sprint(pStatus("BAD") + "Wrong Way! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
 			engine.runAndWait()
 
 	return
@@ -112,7 +108,7 @@ def startMonMode(interface, channel):
 	except:
 		sprint("Killing Network Manager Service:FAILED")
 
-	#sprint(pStatus("GOOD") + "Starting Monitor Mode On Interface:" + interface + " Channel:" + str(channel))
+	#sprint(pStatus("GOOD") + "Starting Monitor Mode On Interface:" + interface + ", Channel:" + str(channel))
 	
 	try:
 		system(
@@ -122,7 +118,7 @@ def startMonMode(interface, channel):
 			+ str(channel) + " >/dev/null 2>&1"
 		)
 	except:
-		sprint("Enabling Monitor Mode On Interface:" + interface + " FAILED")
+		sprint("Enabling Monitor Mode On Interface: " + interface + " FAILED")
 
 	#sprint(pStatus("GOOD") + "Checking If Interface Is In Monitor Mode Interface:" + interface)
 	## call date command ##
@@ -139,11 +135,11 @@ def startMonMode(interface, channel):
 			if interface in outputList[i]:
 				interfaceMode = str(outputList[i+1].split("Mode:")[1].split("Freq")[0]).strip()
 				if interfaceMode == "Monitor":
-					sprint("\nInterface Is In Monitor Mode Interface:" + interface + " Channel:" + str(channel))
+					sprint("\nInterface Is In Monitor Mode Interface: " + interface + ", Channel:" + str(channel))
 					return True
 				else:
 					pass
-					sprint("\nFailed To Put Interface In Monitor Mode Interface:" + interface)
+					sprint("\nFailed To Put Interface In Monitor Mode Interface: " + interface)
 			i += 1
 
 	return False
@@ -242,7 +238,7 @@ def autoSelectInterface():
 
 def autoSelectChannel(argsDict):
 	channel = 11
-	sprint(pStatus("WARN") + "This Does Nothing Yet")
+	sprint(pStatus("WARN") + "This Does Nothing Yet (Setting To 11)")
 	return channel
 
 
@@ -258,29 +254,33 @@ def getAverageDbm(argsDict, num):
 	src = argsDict["targetMacAddr"]
 
 	engine = pyttsx3.init()
-	engine.say("move")
+	engine.say("Move!")
+	sprint(pStatus("GOOD") + "Move!")
 	engine.runAndWait()
-	time.sleep(2)
-	engine.say("Stop")
+	time.sleep(3)
+	engine.say("Stop!")
+	sprint(pStatus("GOOD") + "Stop!")
 	engine.runAndWait()
 	time.sleep(1)
+	
+	sprint(pStatus("GOOD") + "Starting To Sniff...")
 
 	outputs= []
 	dBms = []
 	DN = open(os.devnull, 'w')
 	p = subprocess.Popen(('sudo', 'tcpdump', "-i", interface, "ether", "src", src, '-l'), stdout=subprocess.PIPE, stderr=DN)
-	print("Capturing!")
 	for row in iter(p.stdout.readline, b''):
 		try:
 			dBms.append(int(re.findall("[-+]?[0-9]?[0-9][d][B][m]", str(row.rstrip()))[0].replace("dBm", "")))
 		except:
 			print(str(row.rstrip())[0])
-		print("Received at", dBms[-1])
+		#For Diag
+		#print("Received at", dBms[-1])
 		if len(dBms) > num:
 			time.sleep(1)
 			break
-
-	print(dBms)
+	#For Diag
+	#print(dBms)
 
 	#should round not int
 	return int(numpy.median(dBms))
