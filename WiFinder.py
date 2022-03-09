@@ -3,17 +3,30 @@
 # Author: Github: sonicCrypt0r (https://github.com/sonicCrypt0r)
 
 
-#Global Imports
+# Global Imports
 from sys import stdout
-sprint = stdout.write
 
+# Global Variables
+VERSION = "1.01"
+sprint = stdout.write
 
 def main():
 	banner()  # ASCCI Art Banner For Style
 	checkLinux()  # Check This Is A Linux Operating System
 	checkPriv()  # Check For Root Privleges
+	checkDepend()  # Check For Dependencies
 	argsDict = parseArgs()  # Parse and Autoset Parameters
-	startMonMode(argsDict["interface"], argsDict["channel"])  # Start Monitor Mode On Interface'''
+	if (
+		startMonMode(argsDict["interface"], argsDict["channel"]) == False
+	):  # Start Monitor Mode On Interface
+		sprint(
+			pStatus("BAD")
+			+ "Starting Monitor Mode Failed Interface: "
+			+ argsDict["interface"]
+			+ ", Channel: "
+			+ str(argsDict["channel"] + "\n")
+		)
+		exit(1)
 
 	dBmList = []
 	while True:
@@ -22,18 +35,20 @@ def main():
 
 	return
 
+
 def checkLinux():
 	from platform import system
 
 	os = system()
 
 	if os != "Linux":
-		sprint(pStatus("BAD") + "Operating System Is Not Linux Value: " + os)
+		sprint(pStatus("BAD") + "Operating System Is Not Linux Value: " + os + "\n")
 		exit(1)
-	
+
 	sprint(pStatus("GOOD") + "Operating System Is Linux Value: " + os)
-	
+
 	return
+
 
 def clearScr():
 	from os import system
@@ -43,8 +58,37 @@ def clearScr():
 	return
 
 
+def checkDepend():
+	from sys import version_info
+	from shutil import which
+
+	if version_info[0] <= 3 and version_info[1] <= 6:
+		sprint(
+			pStatus("BAD")
+			+ "This Script Was Designed For Python Version 3.6 or Greater\n"
+		)
+		exit(1)
+
+	if which("iwconfig") is None:
+		sprint(pStatus("BAD") + "Your System Is Missing: iwconfig\n")
+		exit(1)
+
+	if which("tcpdump") is None:
+		sprint(pStatus("BAD") + "Your System Is Missing: tcpdump\n")
+		exit(1)
+
+	if which("airmon-ng") is None:
+		sprint(pStatus("BAD") + "Your System Is Missing: airmon-ng\n")
+		exit(1)
+
+	sprint(pStatus("GOOD") + "Checking Dependencies Status: Good")
+
+	return
+
+
 def banner():
-	print(r"""                                                                           
+	banner = (
+		r"""                                                                           
 @@@  @@@  @@@  @@@  @@@@@@@@  @@@  @@@  @@@  @@@@@@@   @@@@@@@@  @@@@@@@   
 @@@  @@@  @@@  @@@  @@@@@@@@  @@@  @@@@ @@@  @@@@@@@@  @@@@@@@@  @@@@@@@@  
 @@!  @@!  @@!  @@!  @@!       @@!  @@!@!@@@  @@!  @@@  @@!       @@!  @@@  
@@ -55,7 +99,12 @@ def banner():
 :!:  :!:  :!:  :!:  :!:       :!:  :!:  !:!  :!:  !:!  :!:       :!:  !:!  
  :::: :: :::    ::   ::        ::   ::   ::   :::: ::   :: ::::  ::   :::  
   :: :  : :    :     :        :    ::    :   :: :  :   : :: ::    :   : :  
-					BY: sonicCrypt0r""")
+					VERSION: {VERSION}
+					BY: sonicCrypt0r"""
+	)
+	print(banner.replace("{VERSION}", VERSION))
+
+	return
 
 
 def adviseUser(listDb):
@@ -66,15 +115,33 @@ def adviseUser(listDb):
 		dBmDiff = listDb[-1] - listDb[-2]
 		if dBmDiff == 0:
 			engine.say("No Difference " + str(listDb[-1]))
-			sprint(pStatus("WARN") + "No Difference! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
+			sprint(
+				pStatus("WARN")
+				+ "No Difference! dBm:"
+				+ str(listDb[-1])
+				+ ", Difference:"
+				+ str(dBmDiff)
+			)
 			engine.runAndWait()
 		elif dBmDiff > 1:
 			engine.say("Getting closer, " + str(listDb[-1]))
-			sprint(pStatus("GOOD") + "Getting Closer! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
+			sprint(
+				pStatus("GOOD")
+				+ "Getting Closer! dBm:"
+				+ str(listDb[-1])
+				+ ", Difference:"
+				+ str(dBmDiff)
+			)
 			engine.runAndWait()
 		elif dBmDiff < -1:
 			engine.say("Wrong Way, " + str(listDb[-1]))
-			sprint(pStatus("BAD") + "Wrong Way! dBm:" + str(listDb[-1]) + ", Difference:" + str(dBmDiff))
+			sprint(
+				pStatus("BAD")
+				+ "Wrong Way! dBm:"
+				+ str(listDb[-1])
+				+ ", Difference:"
+				+ str(dBmDiff)
+			)
 			engine.runAndWait()
 
 	return
@@ -86,7 +153,12 @@ def checkPriv():
 	euid = geteuid()
 
 	if euid != 0:
-		sprint(pStatus("BAD") + "This Script Does Not Have Root Privledges EUID: " + str(euid))
+		sprint(
+			pStatus("BAD")
+			+ "This Script Does Not Have Root Privledges EUID: "
+			+ str(euid)
+			+ "\n"
+		)
 		exit(1)
 
 	sprint(pStatus("GOOD") + "This Script Has Root Privledges EUID: " + str(euid))
@@ -100,46 +172,56 @@ def startMonMode(interface, channel):
 	import os
 	from time import sleep
 	import subprocess
-	
-	#sprint(pStatus("GOOD") + "Killing Network Manager Service...")
-	
+
+	# sprint(pStatus("GOOD") + "Killing Network Manager Service...")
+
 	try:
 		system("sudo airmon-ng check kill >/dev/null 2>&1")
 	except:
 		sprint("Killing Network Manager Service:FAILED")
 
-	#sprint(pStatus("GOOD") + "Starting Monitor Mode On Interface:" + interface + ", Channel:" + str(channel))
-	
+	# sprint(pStatus("GOOD") + "Starting Monitor Mode On Interface:" + interface + ", Channel:" + str(channel))
+
 	try:
 		system(
 			"sudo airmon-ng start "
 			+ interface
 			+ " "
-			+ str(channel) + " >/dev/null 2>&1"
+			+ str(channel)
+			+ " >/dev/null 2>&1"
 		)
 	except:
 		sprint("Enabling Monitor Mode On Interface: " + interface + " FAILED")
 
-	#sprint(pStatus("GOOD") + "Checking If Interface Is In Monitor Mode Interface:" + interface)
+	# sprint(pStatus("GOOD") + "Checking If Interface Is In Monitor Mode Interface:" + interface)
 	## call date command ##
-	DN = open(os.devnull, 'w')
+	DN = open(os.devnull, "w")
 	p = subprocess.Popen(("iwconfig"), stdout=subprocess.PIPE, stderr=DN)
 	(output, err) = p.communicate()
 	pStatus = p.wait()
-
 
 	i = 0
 	if pStatus == 0:
 		outputList = output.decode().split("\n")
 		while i < len(outputList):
 			if interface in outputList[i]:
-				interfaceMode = str(outputList[i+1].split("Mode:")[1].split("Freq")[0]).strip()
+				interfaceMode = str(
+					outputList[i + 1].split("Mode:")[1].split("Freq")[0]
+				).strip()
 				if interfaceMode == "Monitor":
-					sprint("\nInterface Is In Monitor Mode Interface: " + interface + ", Channel:" + str(channel))
+					sprint(
+						"\nInterface Is In Monitor Mode Interface: "
+						+ interface
+						+ ", Channel:"
+						+ str(channel)
+					)
 					return True
 				else:
 					pass
-					sprint("\nFailed To Put Interface In Monitor Mode Interface: " + interface)
+					sprint(
+						"\nFailed To Put Interface In Monitor Mode Interface: "
+						+ interface
+					)
 			i += 1
 
 	return False
@@ -152,7 +234,6 @@ def parseArgs():
 		"interface": None,
 		"targetMacAddr": None,
 		"channel": None,
-		"language": "en",
 	}
 
 	parser = argparse.ArgumentParser()
@@ -163,7 +244,7 @@ def parseArgs():
 		"-t", "--target", help="Target Devices's MAC Address", required=True
 	)
 	parser.add_argument("-c", "--channel", help="Wireless Channel Of Target Device")
-	parser.add_argument("-l", "--language", help="Language Ex: en")
+	parser.add_argument("-v", "--version", action='version', version="Version: " + VERSION, help="Show Version Number")
 
 	# Read arguments from command line
 	sprint("\n\n")
@@ -177,6 +258,8 @@ def parseArgs():
 
 	if args.channel == None:
 		argsDict["channel"] = autoSelectChannel(argsDict)
+	else:
+		argsDict["channel"] = args.channel
 
 	if checkMac(args.target):
 		argsDict["targetMacAddr"] = args.target
@@ -197,18 +280,18 @@ def autoSelectInterface():
 	import subprocess
 	import os
 
-	#sprint(pStatus("GOOD") + "Attempting To Auto Select Interface...")
+	# sprint(pStatus("GOOD") + "Attempting To Auto Select Interface...")
 
 	## call date command ##
-	DN = open(os.devnull, 'w')
+	DN = open(os.devnull, "w")
 	p = subprocess.Popen(("iwconfig"), stdout=subprocess.PIPE, stderr=DN)
-	
+
 	## Talk with date command i.e. read data from stdout and stderr. Store this info in tuple ##
 	## Interact with process: Send data to stdin. Read data from stdout and stderr, until end-of-file is reached.  ##
 	## Wait for process to terminate. The optional input argument should be a string to be sent to the child process, ##
 	## or None, if no data should be sent to the child.
 	(output, err) = p.communicate()
-	
+
 	## Wait for date to terminate. Get return returncode ##
 	pStatus = p.wait()
 
@@ -228,9 +311,9 @@ def autoSelectInterface():
 			monitorModeInerface = potentialInterfaces[i]
 			break
 		i += 1
-	
+
 	if monitorModeInerface == None:
-		#sprint(pStatus("BAD") + "No Wireless Interfaces Support Monitor Mode")
+		# sprint(pStatus("BAD") + "No Wireless Interfaces Support Monitor Mode\n")
 		exit(1)
 
 	return monitorModeInerface
@@ -250,69 +333,89 @@ def getAverageDbm(argsDict, num):
 	import pyttsx3
 	import os
 
-	interface = argsDict["interface"]
-	src = argsDict["targetMacAddr"]
-
 	engine = pyttsx3.init()
+
 	engine.say("Move!")
 	sprint(pStatus("GOOD") + "Move!")
 	engine.runAndWait()
 	time.sleep(3)
+
 	engine.say("Stop!")
 	sprint(pStatus("GOOD") + "Stop!")
 	engine.runAndWait()
 	time.sleep(1)
-	
+
 	sprint(pStatus("GOOD") + "Starting To Sniff...")
 
-	outputs= []
+	outputs = []
 	dBms = []
-	DN = open(os.devnull, 'w')
-	p = subprocess.Popen(('sudo', 'tcpdump', "-i", interface, "ether", "src", src, '-l'), stdout=subprocess.PIPE, stderr=DN)
-	for row in iter(p.stdout.readline, b''):
+	DN = open(os.devnull, "w")
+	p = subprocess.Popen(
+		(
+			"sudo",
+			"tcpdump",
+			"-i",
+			argsDict["interface"],
+			"ether",
+			"src",
+			argsDict["targetMacAddr"],
+			"-l",
+		),
+		stdout=subprocess.PIPE,
+		stderr=DN,
+	)
+	for row in iter(p.stdout.readline, b""):
 		try:
-			dBms.append(int(re.findall("[-+]?[0-9]?[0-9][d][B][m]", str(row.rstrip()))[0].replace("dBm", "")))
+			dBms.append(
+				int(
+					re.findall("[-+]?[0-9]?[0-9][d][B][m]", str(row.rstrip()))[
+						0
+					].replace("dBm", "")
+				)
+			)
 		except:
 			print(str(row.rstrip())[0])
-		#For Diag
-		#print("Received at", dBms[-1])
+		# For Diag
+		# print("Received at", dBms[-1])
 		if len(dBms) > num:
 			time.sleep(1)
 			break
-	#For Diag
-	#print(dBms)
+	# For Diag
+	# print(dBms)
 
-	#should round not int
-	return int(numpy.median(dBms))
+	# should round not int
+	return int(round(numpy.median(dBms)))
 
 
 def pStatus(status):
-	#This function is for fancy output throughout the program
+	# This function is for fancy output throughout the program
 
 	# Colors used for fancy output
 	COLORS = {
-		'WARN': '\033[93m',
-		'GOOD': '\033[92m',
-		'BAD': '\033[91m',
-		'INPUT': '\033[96m',
-		'ENDC': '\033[0m',
-		'UP': '\033[F',
-		}
+		"WARN": "\033[93m",
+		"GOOD": "\033[92m",
+		"BAD": "\033[91m",
+		"INPUT": "\033[96m",
+		"ENDC": "\033[0m",
+		"UP": "\033[F",
+	}
 
-	if status == 'GOOD':
-		return '\n' + COLORS['ENDC'] + '[' + COLORS['GOOD'] + '+' \
-			+ COLORS['ENDC'] + '] '
-	if status == 'BAD':
-		return '\n' + COLORS['ENDC'] + '[' + COLORS['BAD'] + '+' \
-			+ COLORS['ENDC'] + '] '
-	if status == 'WARN':
-		return '\n' + COLORS['ENDC'] + '[' + COLORS['WARN'] + '+' \
-			+ COLORS['ENDC'] + '] '
-	if status == 'INPUT':
-		return '\n' + COLORS['ENDC'] + '[' + COLORS['INPUT'] + '+' \
-			+ COLORS['ENDC'] + '] '
-	if status == 'UP':
-		return COLORS['UP']
+	if status == "GOOD":
+		return (
+			"\n" + COLORS["ENDC"] + "[" + COLORS["GOOD"] + "+" + COLORS["ENDC"] + "] "
+		)
+	if status == "BAD":
+		return "\n" + COLORS["ENDC"] + "[" + COLORS["BAD"] + "+" + COLORS["ENDC"] + "] "
+	if status == "WARN":
+		return (
+			"\n" + COLORS["ENDC"] + "[" + COLORS["WARN"] + "+" + COLORS["ENDC"] + "] "
+		)
+	if status == "INPUT":
+		return (
+			"\n" + COLORS["ENDC"] + "[" + COLORS["INPUT"] + "+" + COLORS["ENDC"] + "] "
+		)
+	if status == "UP":
+		return COLORS["UP"]
 
 	return
 
