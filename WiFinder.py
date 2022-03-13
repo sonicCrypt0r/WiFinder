@@ -64,7 +64,10 @@ def getAverageDbmScapy(argsDict, time):
     dBmList = []
     while x < len(a):
         if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
-            dBmList.append(a[x].dBm_AntSignal)
+            if (isinstance(a[x].dBm_AntSignal, int)) or (
+                isinstance(a[x].dBm_AntSignal, float)
+            ):
+                dBmList.append(a[x].dBm_AntSignal)
         x += 1
 
     if len(dBmList) < 1:
@@ -159,7 +162,19 @@ def adviseUser(listDb):
     engine = pyttsx3.init()
     if len(listDb) > 1:
         dBmDiff = listDb[-1] - listDb[-2]
-        if dBmDiff > 1:
+        if listDb[-1] == -999999:
+            engine.say("No Readings!")
+            sprint(
+                pStatus("WARN")
+                + "No Readings! dBm:"
+                + str(listDb[-1])
+                + ", Difference:"
+                + str(dBmDiff)
+                + ", Latest Readings: "
+                + str(listDb[-5:])
+            )
+            engine.runAndWait()
+        elif dBmDiff > 1:
             engine.say("Getting closer, " + str(listDb[-1]))
             sprint(
                 pStatus("GOOD")
@@ -236,18 +251,23 @@ def startMonMode(interface, channel):
         pStatus("GOOD")
         + "Starting Monitor Mode On Interface: "
         + interface
-        + ", Channel:"
+        + ", Channel: "
         + str(channel)
     )
 
-    try:
-        system(
+    if channel == "None":
+        command = "sudo airmon-ng start " + interface + " >/dev/null 2>&1"
+    else:
+        command = (
             "sudo airmon-ng start "
             + interface
             + " "
             + str(channel)
             + " >/dev/null 2>&1"
         )
+
+    try:
+        system(command)
     except:
         sprint("Enabling Monitor Mode On Interface: " + interface + " FAILED")
 
@@ -275,7 +295,7 @@ def startMonMode(interface, channel):
                         pStatus("GOOD")
                         + "Interface Is In Monitor Mode Interface: "
                         + interface
-                        + ", Channel:"
+                        + ", Channel: "
                         + str(channel)
                     )
                     return True
@@ -326,13 +346,13 @@ def parseArgs():
     else:
         argsDict["interface"] = args.interface
 
+    if checkMac(args.target):
+        argsDict["targetMacAddr"] = args.target.upper()
+
     if args.channel == None:
         argsDict["channel"] = autoSelectChannel(argsDict)
     else:
         argsDict["channel"] = args.channel
-
-    if checkMac(args.target):
-        argsDict["targetMacAddr"] = args.target.upper()
 
     return argsDict
 
@@ -346,7 +366,7 @@ def checkMac(macAddr):
         sprint(pStatus("BAD") + "Invalid Target MAC Address Provided\n")
         exit(1)
 
-    return
+    return True
 
 
 def autoSelectInterface():
@@ -380,7 +400,7 @@ def autoSelectInterface():
     i = 0
     monitorModeInerface = None
     while i < len(potentialInterfaces):
-        if startMonMode(potentialInterfaces[i], 6):
+        if startMonMode(potentialInterfaces[i], "None"):
             monitorModeInerface = potentialInterfaces[i]
             break
         i += 1
@@ -393,8 +413,64 @@ def autoSelectInterface():
 
 
 def autoSelectChannel(argsDict):
-    channel = 11
-    sprint(pStatus("WARN") + "This Does Nothing Yet (Setting To 11)")
+    from scapy.all import sniff
+
+    twoChannels = [
+        1,
+        6,
+        11,
+        36,
+        40,
+        44,
+        48,
+        52,
+        60,
+        64,
+        100,
+        104,
+        108,
+        112,
+        116,
+        120,
+        124,
+        128,
+        132,
+        136,
+        140,
+        144,
+        149,
+        153,
+        157,
+        161,
+        165,
+    ]
+
+    try:
+        while True:
+            i = 0
+            while i < len(twoChannels):
+                startMonMode(argsDict["interface"], twoChannels[i])
+                sprint(pStatus("WARN") + "Trying To Auto-Detect Channel")
+                a = sniff(iface=argsDict["interface"], timeout=1)
+                x = 0
+                while x < len(a):
+                    try:
+                        channelb = twoChannels[i]
+                        frequency = a[x].ChannelFrequency
+                        channel = a[x].channel
+                    except:
+                        channel = channelb
+                    if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
+                        # sprint("\n" + str(a[x].addr2).upper() + " " + argsDict["targetMacAddr"]+ " " + str(channel) + " " + str(channelb) + " " + str(frequency))
+                        # print(a[x].show())
+                        raise StopIteration
+                    x += 1
+                i += 1
+    except StopIteration:
+        pass
+
+    sprint(pStatus("GOOD") + "Channel Detected " + "Channel: " + str(channel))
+
     return channel
 
 
