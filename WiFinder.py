@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 # Author: Github: sonicCrypt0r (https://github.com/sonicCrypt0r)
+# Description: This Script Helps You Physically Find A Device From MAC Address.
 
 
 # Global Imports
@@ -8,16 +9,19 @@ from sys import stdout
 
 
 # Global Variables
-VERSION = "1.03"
+VERSION = "1.04"
 sprint = stdout.write
 
 
+# Establishes General Flow Of The Program.
 def main():
-    banner()  # ASCCI Art Banner For Style
+    banner()  # Prints ASCCI Art Banner For Style
     checkLinux()  # Check This Is A Linux Operating System
     checkPriv()  # Check For Root Privleges
     checkDepend()  # Check For Dependencies
     argsDict = parseArgs()  # Parse and Autoset Parameters
+
+    # Attempt To Start Monitor Mode Quit If Failed
     if (
         startMonMode(argsDict["interface"], argsDict["channel"]) == False
     ):  # Start Monitor Mode On Interface
@@ -28,16 +32,38 @@ def main():
             + ", Channel: "
             + str(argsDict["channel"] + "\n")
         )
-        exit(1)
+        exit(1)  # Exit With Error Code
 
+    # Empty List That Will Hold The Average dBm From Each Sniffing Session
     dBmList = []
-    while True:
-        dBmList.append(getAverageDbmScapy(argsDict, 4))
-        adviseUser(dBmList)
+    try:
+        while True:
+            dBmList.append(
+                getAverageDbmScapy(argsDict, 4)
+            )  # Sniff Packets For 4 Seconds Append Median dBm To List
+            # Based On New dBm Median Advise User On If They Are Going The Right Way
+            adviseUser(dBmList)
+    except KeyboardInterrupt:
+        stopMonMode(argsDict["interface"])
 
     return
 
 
+# This Function Takes An Interface Out Of Monitor Mode.
+def stopMonMode(interface):
+    from os import system
+
+    sprint(pStatus("GOOD") + "Stopping Monitor Mode On Interface: " + interface)
+
+    cmd = "sudo airmon-ng stop " + interface + " >/dev/null 2>&1"
+    system(command)
+
+    sprint(pStatus("GOOD") + "Monitor Mode Stopped On Interface: " + interface)
+
+    return
+
+
+# This Funcion Sniffs For time Frames From Target MAC Addr Returns Median Of dBms.
 def getAverageDbmScapy(argsDict, time):
     from scapy.all import sniff
     from numpy import median
@@ -79,6 +105,7 @@ def getAverageDbmScapy(argsDict, time):
     return int(round(median(dBmList)))
 
 
+# This Function Checks If On Linux Terminates If Not.
 def checkLinux():
     from platform import system
 
@@ -86,21 +113,14 @@ def checkLinux():
 
     if os != "Linux":
         sprint(pStatus("BAD") + "Operating System Is Not Linux Value: " + os + "\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     sprint(pStatus("GOOD") + "Operating System Is Linux Value: " + os)
 
     return
 
 
-def clearScr():
-    from os import system
-
-    system("clear")
-
-    return
-
-
+# This Function Checks Dependencies Terminates If Not Found.
 def checkDepend():
     from sys import version_info
     from shutil import which
@@ -110,33 +130,34 @@ def checkDepend():
             pStatus("BAD")
             + "This Script Was Designed For Python Version 3.6 or Greater\n"
         )
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     if which("iwconfig") is None:
         sprint(pStatus("BAD") + "Your System Is Missing: iwconfig\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     if which("airmon-ng") is None:
         sprint(pStatus("BAD") + "Your System Is Missing: airmon-ng\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     try:
         import scapy
     except:
         sprint(pStatus("BAD") + "Your System Is Missing Python3 Scapy Module\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     try:
         import pyttsx3
     except:
         sprint(pStatus("BAD") + "Your System Is Missing Python3 pyttsx3 Module\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     sprint(pStatus("GOOD") + "Checking Dependencies Status: Good")
 
     return
 
 
+# This Function Prints ASCCI Art Banner For Style
 def banner():
     banner = r"""                                                                           
 @@@  @@@  @@@  @@@  @@@@@@@@  @@@  @@@  @@@  @@@@@@@   @@@@@@@@  @@@@@@@   
@@ -156,6 +177,7 @@ def banner():
     return
 
 
+# This Function Takes A Tuple Of Median dBms Advises User If They Are Getting Closer.
 def adviseUser(listDb):
     import pyttsx3
 
@@ -214,6 +236,7 @@ def adviseUser(listDb):
     return
 
 
+# This Function Checks For Root Privledges Terminates If Not Root.
 def checkPriv():
     from os import geteuid
 
@@ -226,13 +249,14 @@ def checkPriv():
             + str(euid)
             + "\n"
         )
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     sprint(pStatus("GOOD") + "This Script Has Root Privledges EUID: " + str(euid))
 
     return
 
 
+# This Function Starts Monitor Mode On An Interface And Checks The Interface After.
 def startMonMode(interface, channel):
     # Needs Way To Check If Monitor Mode Was Successful
     from os import system
@@ -311,6 +335,7 @@ def startMonMode(interface, channel):
     return False
 
 
+# This Function Parses The Arguments Given At The CLI
 def parseArgs():
     import argparse
 
@@ -357,6 +382,7 @@ def parseArgs():
     return argsDict
 
 
+# This Function Checks If A MAC Address Is Valid If Not Terminate.
 def checkMac(macAddr):
     import re
 
@@ -364,39 +390,36 @@ def checkMac(macAddr):
         re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", macAddr.lower())
     ):
         sprint(pStatus("BAD") + "Invalid Target MAC Address Provided\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
     return True
 
 
+# This Function Attempts To Find An Interface Capable Of Monitor Mode.
 def autoSelectInterface():
     import subprocess
-    import os
+    from os import devnull
 
     sprint(pStatus("GOOD") + "Attempting To Auto Select Interface...")
 
-    ## call date command ##
-    DN = open(os.devnull, "w")
+    # Execute "iwconfig" with no output & Wait For Command To Finish
+    DN = open(devnull, "w")
     p = subprocess.Popen(("iwconfig"), stdout=subprocess.PIPE, stderr=DN)
-
-    ## Talk with date command i.e. read data from stdout and stderr. Store this info in tuple ##
-    ## Interact with process: Send data to stdin. Read data from stdout and stderr, until end-of-file is reached.  ##
-    ## Wait for process to terminate. The optional input argument should be a string to be sent to the child process, ##
-    ## or None, if no data should be sent to the child.
     (output, err) = p.communicate()
-
-    ## Wait for date to terminate. Get return returncode ##
     procStatus = p.wait()
 
+    # Empty Tuple That Will Hold All Interfaces
     potentialInterfaces = []
     i = 0
     if procStatus == 0:
         outputList = output.decode().split("\n")
         while i < len(outputList):
             if "Nickname" in outputList[i]:
+                # Append Interface To Potential Interfaces Tuple
                 potentialInterfaces.append(outputList[i].split(" ")[0])
             i += 1
 
+    # Try To Put Every Device From Potential Interfaces Tuple In Monitor Mode Stop On First Success
     i = 0
     monitorModeInerface = None
     while i < len(potentialInterfaces):
@@ -405,17 +428,21 @@ def autoSelectInterface():
             break
         i += 1
 
+    # If No Intefaces Supported Monitor Mode
     if monitorModeInerface == None:
         sprint(pStatus("BAD") + "No Wireless Interfaces Support Monitor Mode\n")
-        exit(1)
+        exit(1)  # Exit With Error Code
 
+    # Monitor Mode Interface
     return monitorModeInerface
 
 
+# This Function Attempts To Auto Detect Which Channel A Target Device Is On.
 def autoSelectChannel(argsDict):
     from scapy.all import sniff
 
-    twoChannels = [
+    # List Of All Possible Channels (Should Overlapping Channels Be Here? Seems Like No)
+    allChannelsList = [
         1,
         6,
         11,
@@ -445,67 +472,75 @@ def autoSelectChannel(argsDict):
         165,
     ]
 
-    try:
-        while True:
-            i = 0
-            while i < len(twoChannels):
-                startMonMode(argsDict["interface"], twoChannels[i])
-                sprint(pStatus("WARN") + "Trying To Auto-Detect Channel")
-                a = sniff(iface=argsDict["interface"], timeout=1)
-                x = 0
-                while x < len(a):
+    channelFinal = None
+    while channelFinal == None:
+        i = 0
+        while i < len(allChannelsList) and channelFinal == None:
+            startMonMode(argsDict["interface"], allChannelsList[i])
+            sprint(pStatus("WARN") + "Trying To Auto-Detect Channel")
+            a = sniff(iface=argsDict["interface"], timeout=1)
+            x = 0
+            while x < len(a):
+                # If Packet Was From The Target MAC Address
+                if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
+                    channelRecvdOn = allChannelsList[
+                        i
+                    ]  # Channel You Were Listening On When You Received The Packet
                     try:
-                        channelb = twoChannels[i]
-                        frequency = a[x].ChannelFrequency
-                        channel = a[x].channel
+                        # This May Cause Exception For Some Reason Sometimes Scapy 802.11 Radio Dummy Header Channel Is Empty
+                        channelFrmHeadr = a[
+                            x
+                        ].channel  # Channel In the 802.11 Radio Dummy Header
+                        channelFinal = channelFrmHeadr  # Channel That Will Be Returned From This Function
+                        # frequency = a[x].ChannelFrequency # This May Be Useful At Somepoint
                     except:
-                        channel = channelb
-                    if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
-                        # sprint("\n" + str(a[x].addr2).upper() + " " + argsDict["targetMacAddr"]+ " " + str(channel) + " " + str(channelb) + " " + str(frequency))
-                        # print(a[x].show())
-                        raise StopIteration
-                    x += 1
-                i += 1
-    except StopIteration:
-        pass
+                        # If No channelFrmHeadr Use channelRecvdOn
+                        channelFinal = channelRecvdOn
+                    finally:
+                        break  # Break Out Of The Entire Block
+                x += 1
+            i += 1
 
-    sprint(pStatus("GOOD") + "Channel Detected " + "Channel: " + str(channel))
+    sprint(pStatus("GOOD") + "Channel Detected " + "Channel: " + str(channelFinal))
 
-    return channel
+    return channelFinal
 
 
+# This Function Is For Fancy Output Throughout The Program
 def pStatus(status):
-    # This function is for fancy output throughout the program
-
-    # Colors used for fancy output
+    # Colors Used For Fancy Output
     COLORS = {
-        "WARN": "\033[93m",
-        "GOOD": "\033[92m",
-        "BAD": "\033[91m",
-        "INPUT": "\033[96m",
-        "ENDC": "\033[0m",
-        "UP": "\033[F",
+        "WARN": "\033[93m",  # Yellow
+        "GOOD": "\033[92m",  # Green
+        "BAD": "\033[91m",  # Red
+        "INPUT": "\033[96m",  # Blue
+        "ENDC": "\033[0m",  # White
+        "UP": "\033[F",  # This Goes Up A Line
     }
 
+    # Select Color/Prefix Based On "status"
     if status == "GOOD":
-        return (
+        prefix = (
             "\n" + COLORS["ENDC"] + "[" + COLORS["GOOD"] + "+" + COLORS["ENDC"] + "] "
         )
-    if status == "BAD":
-        return "\n" + COLORS["ENDC"] + "[" + COLORS["BAD"] + "+" + COLORS["ENDC"] + "] "
-    if status == "WARN":
-        return (
+    elif status == "BAD":
+        prefix = (
+            "\n" + COLORS["ENDC"] + "[" + COLORS["BAD"] + "+" + COLORS["ENDC"] + "] "
+        )
+    elif status == "WARN":
+        prefix = (
             "\n" + COLORS["ENDC"] + "[" + COLORS["WARN"] + "+" + COLORS["ENDC"] + "] "
         )
-    if status == "INPUT":
-        return (
+    elif status == "INPUT":
+        prefix = (
             "\n" + COLORS["ENDC"] + "[" + COLORS["INPUT"] + "+" + COLORS["ENDC"] + "] "
         )
-    if status == "UP":
-        return COLORS["UP"]
+    elif status == "UP":
+        prefix = COLORS["UP"]
 
-    return
+    return prefix
 
 
+# This Calls The Main Function.
 if __name__ == "__main__":
     main()
