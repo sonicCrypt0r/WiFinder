@@ -32,7 +32,7 @@ def main():
 
     dBmList = []
     while True:
-        dBmList.append(getAverageDbmScapy(argsDict, 2))
+        dBmList.append(getAverageDbmScapy(argsDict, 4))
         adviseUser(dBmList)
 
     return
