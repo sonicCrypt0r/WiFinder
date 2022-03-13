@@ -8,7 +8,7 @@ from sys import stdout
 
 
 # Global Variables
-VERSION = "1.02"
+VERSION = "1.03"
 sprint = stdout.write
 
 
@@ -234,7 +234,7 @@ def startMonMode(interface, channel):
 
     sprint(
         pStatus("GOOD")
-        + "Starting Monitor Mode On Interface:"
+        + "Starting Monitor Mode On Interface: "
         + interface
         + ", Channel:"
         + str(channel)
@@ -340,10 +340,13 @@ def parseArgs():
 def checkMac(macAddr):
     import re
 
-    if re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", macAddr.lower()):
-        return True
-    else:
-        return False
+    if not (
+        re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", macAddr.lower())
+    ):
+        sprint(pStatus("BAD") + "Invalid Target MAC Address Provided\n")
+        exit(1)
+
+    return
 
 
 def autoSelectInterface():
