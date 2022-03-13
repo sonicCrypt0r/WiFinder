@@ -9,7 +9,7 @@ from sys import stdout
 
 
 # Global Variables
-VERSION = "1.04"
+VERSION = "1.05"
 sprint = stdout.write
 
 
@@ -84,23 +84,21 @@ def getAverageDbmScapy(argsDict, time):
 
     sprint(pStatus("GOOD") + "Starting To Sniff...")
 
-    a = sniff(iface=argsDict["interface"], timeout=time)
+    pktCap = sniff(iface=argsDict["interface"], timeout=time)
 
-    x = 0
     dBmList = []
-    while x < len(a):
-        if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
-            if (isinstance(a[x].dBm_AntSignal, int)) or (
-                isinstance(a[x].dBm_AntSignal, float)
+    for pkt in pktCap:
+        if str(pkt.addr2).upper() == argsDict["targetMacAddr"]:
+            if (isinstance(pkt.dBm_AntSignal, int)) or (
+                isinstance(pkt.dBm_AntSignal, float)
             ):
-                dBmList.append(a[x].dBm_AntSignal)
-        x += 1
+                dBmList.append(pkt.dBm_AntSignal)
 
     if len(dBmList) < 1:
-        sprint(pStatus("BAD") + "Not Enough Readings ")
+        sprint(pStatus("BAD") + "Not Enough Packets From Target MAC Address")
         return -999999
     else:
-        sprint(pStatus("GOOD") + "Got " + str(len(dBmList)) + " Readings")
+        sprint(pStatus("GOOD") + "Got " + str(len(dBmList)) + " Packets")
 
     return int(round(median(dBmList)))
 
@@ -260,7 +258,7 @@ def checkPriv():
 def startMonMode(interface, channel):
     # Needs Way To Check If Monitor Mode Was Successful
     from os import system
-    import os
+    from os import devnull
     from time import sleep
     import subprocess
 
@@ -300,15 +298,17 @@ def startMonMode(interface, channel):
         + "Checking If Interface Is In Monitor Mode Interface:"
         + interface
     )
-    ## call date command ##
-    DN = open(os.devnull, "w")
+
+    # Execute "iwconfig" with no output & Wait For Command To Finish
+    DN = open(devnull, "w")
     p = subprocess.Popen(("iwconfig"), stdout=subprocess.PIPE, stderr=DN)
     (output, err) = p.communicate()
     procStatus = p.wait()
 
-    i = 0
+    # If "iwconfig Command Completed"
     if procStatus == 0:
         outputList = output.decode().split("\n")
+        i = 0
         while i < len(outputList):
             if interface in outputList[i]:
                 interfaceMode = str(
@@ -384,10 +384,10 @@ def parseArgs():
 
 # This Function Checks If A MAC Address Is Valid If Not Terminate.
 def checkMac(macAddr):
-    import re
+    from re import match
 
     if not (
-        re.match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", macAddr.lower())
+        match("[0-9a-f]{2}([-:]?)[0-9a-f]{2}(\\1[0-9a-f]{2}){4}$", macAddr.lower())
     ):
         sprint(pStatus("BAD") + "Invalid Target MAC Address Provided\n")
         exit(1)  # Exit With Error Code
@@ -410,23 +410,20 @@ def autoSelectInterface():
 
     # Empty Tuple That Will Hold All Interfaces
     potentialInterfaces = []
-    i = 0
+    # If "iwconfig" command Completed
     if procStatus == 0:
         outputList = output.decode().split("\n")
-        while i < len(outputList):
-            if "Nickname" in outputList[i]:
+        for outputLine in outputList:
+            if "Nickname" in outputLine:
                 # Append Interface To Potential Interfaces Tuple
-                potentialInterfaces.append(outputList[i].split(" ")[0])
-            i += 1
+                potentialInterfaces.append(outputLine.split(" ")[0])
 
     # Try To Put Every Device From Potential Interfaces Tuple In Monitor Mode Stop On First Success
-    i = 0
     monitorModeInerface = None
-    while i < len(potentialInterfaces):
-        if startMonMode(potentialInterfaces[i], "None"):
-            monitorModeInerface = potentialInterfaces[i]
+    for curPotentialInterface in potentialInterfaces:
+        if startMonMode(curPotentialInterface, "None"):
+            monitorModeInerface = curPotentialInterface
             break
-        i += 1
 
     # If No Intefaces Supported Monitor Mode
     if monitorModeInerface == None:
@@ -478,27 +475,25 @@ def autoSelectChannel(argsDict):
         while i < len(allChannelsList) and channelFinal == None:
             startMonMode(argsDict["interface"], allChannelsList[i])
             sprint(pStatus("WARN") + "Trying To Auto-Detect Channel")
-            a = sniff(iface=argsDict["interface"], timeout=1)
-            x = 0
-            while x < len(a):
+            pktCap = sniff(iface=argsDict["interface"], timeout=1)
+            for pkt in pktCap:
                 # If Packet Was From The Target MAC Address
-                if str(a[x].addr2).upper() == argsDict["targetMacAddr"]:
+                if str(pkt.addr2).upper() == argsDict["targetMacAddr"]:
                     channelRecvdOn = allChannelsList[
                         i
                     ]  # Channel You Were Listening On When You Received The Packet
                     try:
                         # This May Cause Exception For Some Reason Sometimes Scapy 802.11 Radio Dummy Header Channel Is Empty
-                        channelFrmHeadr = a[
-                            x
-                        ].channel  # Channel In the 802.11 Radio Dummy Header
+                        channelFrmHeadr = (
+                            pkt.channel
+                        )  # Channel In the 802.11 Radio Dummy Header
                         channelFinal = channelFrmHeadr  # Channel That Will Be Returned From This Function
-                        # frequency = a[x].ChannelFrequency # This May Be Useful At Somepoint
+                        # frequency = pkt.ChannelFrequency # This May Be Useful At Somepoint
                     except:
                         # If No channelFrmHeadr Use channelRecvdOn
                         channelFinal = channelRecvdOn
                     finally:
                         break  # Break Out Of The Entire Block
-                x += 1
             i += 1
 
     sprint(pStatus("GOOD") + "Channel Detected " + "Channel: " + str(channelFinal))
