@@ -15,28 +15,28 @@ sprint = stdout.write
 
 # Establishes General Flow Of The Program.
 def main():
-    banner()  # Prints ASCCI Art Banner For Style
-    checkLinux()  # Check This Is A Linux Operating System
-    checkPriv()  # Check For Root Privleges
-    checkDepend()  # Check For Dependencies
-    argsDict = parseArgs()  # Parse and Autoset Parameters
-
-    # Attempt To Start Monitor Mode Quit If Failed
-    if (
-        startMonMode(argsDict["interface"], argsDict["channel"]) == False
-    ):  # Start Monitor Mode On Interface
-        sprint(
-            pStatus("BAD")
-            + "Starting Monitor Mode Failed Interface: "
-            + argsDict["interface"]
-            + ", Channel: "
-            + str(argsDict["channel"] + "\n")
-        )
-        exit(1)  # Exit With Error Code
-
-    # Empty List That Will Hold The Average dBm From Each Sniffing Session
-    dBmList = []
     try:
+        banner()  # Prints ASCCI Art Banner For Style
+        checkLinux()  # Check This Is A Linux Operating System
+        checkPriv()  # Check For Root Privleges
+        checkDepend()  # Check For Dependencies
+        argsDict = parseArgs()  # Parse and Autoset Parameters
+
+        # Attempt To Start Monitor Mode Quit If Failed
+        if (
+            startMonMode(argsDict["interface"], argsDict["channel"]) == False
+        ):  # Start Monitor Mode On Interface
+            sprint(
+                pStatus("BAD")
+                + "Starting Monitor Mode Failed Interface: "
+                + argsDict["interface"]
+                + ", Channel: "
+                + str(argsDict["channel"] + "\n")
+            )
+            exit(1)  # Exit With Error Code
+
+        # Empty List That Will Hold The Average dBm From Each Sniffing Session
+        dBmList = []
         while True:
             dBmList.append(
                 getAverageDbmScapy(argsDict, 4)
@@ -45,6 +45,7 @@ def main():
             adviseUser(dBmList)
     except KeyboardInterrupt:
         stopMonMode(argsDict["interface"])
+        sprint("\n")
 
     return
 
@@ -56,7 +57,7 @@ def stopMonMode(interface):
     sprint(pStatus("GOOD") + "Stopping Monitor Mode On Interface: " + interface)
 
     cmd = "sudo airmon-ng stop " + interface + " >/dev/null 2>&1"
-    system(command)
+    system(cmd)
 
     sprint(pStatus("GOOD") + "Monitor Mode Stopped On Interface: " + interface)
 
@@ -275,6 +276,7 @@ def startMonMode(interface, channel):
         + interface
         + ", Channel: "
         + str(channel)
+        + " "
     )
 
     if channel == "None":
@@ -321,6 +323,7 @@ def startMonMode(interface, channel):
                         + interface
                         + ", Channel: "
                         + str(channel)
+                        + " "
                     )
                     return True
                 else:
@@ -494,8 +497,10 @@ def autoSelectChannel(argsDict):
                         channelFinal = channelRecvdOn
                     finally:
                         break  # Break Out Of The Entire Block
+            sprint(pStatus("UP") * 5)
             i += 1
 
+    sprint("\n\n\n\n\n")
     sprint(pStatus("GOOD") + "Channel Detected " + "Channel: " + str(channelFinal))
 
     return channelFinal
