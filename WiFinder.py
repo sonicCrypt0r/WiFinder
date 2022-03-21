@@ -15,11 +15,12 @@ sprint = stdout.write
 
 # Establishes General Flow Of The Program.
 def main():
-    try:
         banner()  # Prints ASCCI Art Banner For Style
         checkLinux()  # Check This Is A Linux Operating System
         checkPriv()  # Check For Root Privleges
         checkDepend()  # Check For Dependencies
+
+    try:
         argsDict = parseArgs()  # Parse and Autoset Parameters
 
         # Attempt To Start Monitor Mode Quit If Failed
